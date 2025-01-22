@@ -4,19 +4,13 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const RECEIVER_WALLET = process.env.RECEIVER_WALLET;
+const QUICKNODE_RPC_URL = process.env.QUICKNODE_RPC_URL;
 
-// Serve the frontend files
+// Serve the frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API route to fetch environment variables
-app.get('/api/config', (req, res) => {
-    res.json({
-        rpcUrl: process.env.QUICKNODE_RPC_URL,
-        receiverWallet: process.env.RECEIVER_WALLET
-    });
-});
-
-// Serve the web interface
+// Endpoint to serve the web interface
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

