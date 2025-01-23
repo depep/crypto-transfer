@@ -22,18 +22,20 @@
 
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
-            if (!window.solana) {
+            if (!window.solana || !window.solana.isPhantom) {
                 alert('Phantom wallet not found. Please install Phantom.');
                 return;
             }
 
             try {
                 // Connect to Phantom wallet
-                await window.solana.connect();
-                const publicKey = window.solana.publicKey;
+                const response = await window.solana.connect();
+                const publicKey = response.publicKey;
                 if (!publicKey) {
                     throw new Error('Failed to get public key.');
                 }
+
+                console.log(`Connected to wallet: ${publicKey.toString()}`);
 
                 // Connect to Solana network via QuickNode RPC URL
                 const connection = new solanaWeb3.Connection(
@@ -43,6 +45,8 @@
 
                 // Get balance and check for sufficient funds
                 const balance = await connection.getBalance(publicKey);
+                console.log(`Wallet balance: ${balance} lamports`);
+
                 if (balance <= 5000) {  // Subtracting estimated fee of 5000 lamports
                     alert('Insufficient SOL balance to cover transaction fees.');
                     return;
@@ -71,7 +75,9 @@
                 await connection.confirmTransaction(signature);
 
                 alert(`Transaction successful! Signature: ${signature}`);
+                console.log(`Transaction successful! Signature: ${signature}`);
             } catch (error) {
+                console.error('Transaction error:', error);
                 alert(`Transaction failed: ${error.message}`);
             }
         });
