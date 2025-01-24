@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
     
-    <!-- Buffer library (must be loaded before Web3.js) -->
+    <!-- Load Solana Web3.js -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    
+    <!-- Load Buffer library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
     <script>
-        window.Buffer = window.buffer.Buffer;
+        window.Buffer = window.Buffer || require('buffer').Buffer;
     </script>
-
-    <!-- Solana Web3.js library -->
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-
+    
     <link rel="icon" href="data:,">
 </head>
 <body>
