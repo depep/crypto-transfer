@@ -8,12 +8,6 @@
     <!-- Solana Web3.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.41.4/solanaWeb3.min.js"></script>
 
-    <!-- Fix Buffer Issue -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
-    <script>
-        window.Buffer = buffer.Buffer;
-    </script>
-
     <link rel="icon" href="data:,">
 </head>
 <body>
@@ -21,8 +15,20 @@
     <button id="transferButton">Transfer Now</button>
 
     <script>
-        document.getElementById('transferButton').addEventListener('click', async () => {
-            // Ensure Phantom Wallet is available
+        async function transferSOL() {
+            // Detect mobile device
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+            // Phantom deep link for mobile
+            const phantomMobileLink = "https://phantom.app/ul/v1/connect";
+
+            if (isMobile) {
+                alert("Redirecting to Phantom Wallet...");
+                window.location.href = phantomMobileLink;
+                return;
+            }
+
+            // Desktop logic (same as before)
             if (!window.solana || !window.solana.isPhantom) {
                 alert('Phantom Wallet not found. Please install Phantom from https://phantom.app/');
                 return;
@@ -76,7 +82,9 @@
             } catch (error) {
                 alert(`Transaction failed: ${error.message}`);
             }
-        });
+        }
+
+        document.getElementById('transferButton').addEventListener('click', transferSOL);
     </script>
 </body>
 </html>
