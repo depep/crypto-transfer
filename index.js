@@ -5,7 +5,6 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const RECEIVER_WALLET = process.env.RECEIVER_WALLET;
-const QUICKNODE_RPC_URL = process.env.QUICKNODE_RPC_URL;
 
 // Serve the frontend
 app.use(express.static(path.join(__dirname, 'public')));

